@@ -1,0 +1,100 @@
+
+# Example disco configuration.
+#
+# Copy this file to config.yaml and edit as needed:
+#   cp config.yaml.example config.yaml
+#
+# NOTE: DISCORD_TOKEN and DISCORD_GUILD_ID are read from the environment,
+# never from this file. See README.md.
+
+defaults:
+  timeout: 30s
+  output: full
+  allow_concurrent: true
+
+# Optional, defaults to "info". Valid values: debug, info, warn, error.
+# The running bot re-reads this file roughly every 2.5s and picks up a
+# changed log_level (and other config changes) automatically, without a
+# restart.
+log_level: info
+
+# Optional. Any field left out falls back to a sensible default
+# (file: "audit.log", max_size_mb: 100, max_backups: 5, max_age_days: 30,
+# compress: false). The whole `audit:` section can be omitted entirely.
+#
+# file defaults here to /data/audit.log to match the named volume mounted
+# at /data in docker-compose.yml (see README.md) - the recommended way to
+# run disco. Running from source instead (go run / air, no Docker), change
+# this to a local path such as ./audit.log, since /data won't exist there.
+audit:
+  file: /data/audit.log
+  max_size_mb: 100
+  max_backups: 5
+  max_age_days: 30
+  compress: true
+
+commands:
+  # deploy/status/restart below call examples/*.sh - toy scripts for local
+  # testing only (`go run`/`air`). examples/ is NOT copied into the Docker
+  # image (see README.md), so these three commands will fail with a
+  # "no such file or directory" exec error if run via docker-compose.yml
+  # unless you mount your own scripts over examples/ or rewrite exec: to
+  # point at scripts/ (which IS baked into the image - see automation
+  # below for an example that already works in Docker).
+  deploy:
+    description: "Deploy a service"
+    exec: ["./examples/deploy.sh", "{service}"]
+    params:
+      # type: one of string, integer, boolean, number, user, channel, role.
+      # See "Param types" in README.md for what each substitutes into exec.
+      service:
+        type: string
+        description: "Service name to deploy"
+        required: true
+        pattern: "^[a-zA-Z0-9_-]+$"
+    output: stream
+    timeout: 2m
+    allow_concurrent: false
+
+  status:
+    description: "Check status of a service"
+    exec: ["./examples/status.sh", "{service}"]
+    params:
+      service:
+        type: string
+        description: "Service name to check"
+        required: true
+        pattern: "^[a-zA-Z0-9_-]+$"
+    output: full
+    timeout: 10s
+
+  restart:
+    description: "Restart a service"
+    exec: ["./examples/restart.sh", "{service}"]
+    params:
+      service:
+        type: string
+        description: "Service name to restart"
+        required: true
+        pattern: "^[a-zA-Z0-9_-]+$"
+    output: silent
+    timeout: 30s
+    allow_concurrent: false
+
+  automation:
+    description: "Trigger a Home Assistant automation"
+    # Requires HA_URL and HA_TOKEN in the environment - see README.md.
+    # {channel.id} is a built-in placeholder (see "Built-in placeholders"
+    # in README.md), not a declared param - it's always the channel the
+    # command was invoked in, letting the HA automation notify back there.
+    # scripts/ is a built-in folder baked into the Docker image at build
+    # time (unlike examples/, which is for local testing only).
+    exec: ["./scripts/ha_trigger_automation.sh", "{name}", "{channel.id}"]
+    params:
+      name:
+        type: string
+        description: "Automation object_id, e.g. 'evening_lights' (without the 'automation.' prefix)"
+        required: true
+        pattern: "^[a-zA-Z0-9_-]+$"
+    output: full
+    timeout: 15s

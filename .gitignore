@@ -1,0 +1,21 @@
+# Built binary (module name "disco"), anchored to repo root only so this
+# doesn't accidentally match source directories like config/ or discord/.
+/disco
+
+# Real config (host-specific script paths); the example stays tracked.
+/config.yaml
+
+# Log files (audit log and rotated backups).
+*.log
+
+# air (live-reload) build output and its runtime log.
+/tmp/
+air.log
+
+# Docker Compose env file (holds DISCORD_TOKEN / DISCORD_GUILD_ID).
+.env
+
+/audit-data
+
+# GoReleaser local build output.
+/dist

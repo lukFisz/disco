@@ -1,0 +1,12 @@
+services:
+  disco:
+    image: ghcr.io/lukfisz/disco:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - audit-data:/data
+
+volumes:
+  audit-data:
