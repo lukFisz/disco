@@ -34,9 +34,9 @@ audit:
   compress: true
 
 commands:
-  # deploy/status/restart below call examples/*.sh - toy scripts for local
-  # testing only (`go run`/`air`). examples/ is NOT copied into the Docker
-  # image (see README.md), so these three commands will fail with a
+  # deploy/status/restart/notify below call examples/*.sh - toy scripts for
+  # local testing only (`go run`/`air`). examples/ is NOT copied into the
+  # Docker image (see README.md), so these commands will fail with a
   # "no such file or directory" exec error if run via docker-compose.yml
   # unless you mount your own scripts over examples/ or rewrite exec: to
   # point at scripts/ (which IS baked into the image - see automation
@@ -98,3 +98,54 @@ commands:
         pattern: "^[a-zA-Z0-9_-]+$"
     output: full
     timeout: 15s
+
+  notify:
+    description: "Demo command exercising every param type (local testing only)"
+    exec:
+      [
+        "./examples/notify.sh",
+        "{message}",
+        "{repeat}",
+        "{urgent}",
+        "{score}",
+        "{target_user}",
+        "{target_channel}",
+        "{target_role}",
+      ]
+    params:
+      message:
+        type: string
+        # pattern is a plain Go regexp (RE2 syntax), checked with
+        # regexp.MatchString - i.e. it looks for the pattern ANYWHERE in the
+        # value, not the whole value, unless you anchor it yourself with ^
+        # and $ like here. pattern is only ever checked for type: string;
+        # it's ignored (and pointless) on every other type below.
+        description: "Message text"
+        required: true
+        pattern: "^[a-zA-Z0-9 ,.!?_-]+$"
+      repeat:
+        type: integer
+        description: "How many times to repeat the message"
+        required: true
+      urgent:
+        type: boolean
+        description: "Mark the notification as urgent"
+        required: true
+      score:
+        type: number
+        description: "Priority score, e.g. 7.5"
+        required: true
+      target_user:
+        type: user
+        description: "Discord user to notify"
+        required: true
+      target_channel:
+        type: channel
+        description: "Discord channel to post in"
+        required: true
+      target_role:
+        type: role
+        description: "Discord role to mention"
+        required: true
+    output: full
+    timeout: 10s

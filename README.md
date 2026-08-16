@@ -9,6 +9,16 @@ configurable mode (`full`, `stream`, or `silent`), with per-command
 timeout and concurrency control, and every invocation is recorded as a
 structured JSON audit log with automatic rotation.
 
+## Table of contents
+
+- [Quick start (recommended: Docker Compose)](#quick-start-recommended-docker-compose)
+  - [Other ways to run](#other-ways-to-run)
+- [Discord setup](#discord-setup)
+- [Config](#config)
+- [Known limitations](#known-limitations)
+- [Development](#development)
+- [Releases & container images](#releases--container-images)
+
 ## Quick start (recommended: Docker Compose)
 
 Copy `config.yaml.example` to `config.yaml` and edit as needed, then
@@ -88,6 +98,11 @@ fully-worked reference (all output modes, every field). Key points:
 - **Param types** (`params:` under a command): `string` (with optional
   `pattern:`), `integer`, `boolean`, `number`, and Discord-native pickers
   `user`/`channel`/`role` (substituted as the picked entity's numeric ID).
+  `pattern:` only applies to `string` params; it's a plain Go regexp
+  checked with `regexp.MatchString`, so it matches anywhere in the value —
+  anchor it yourself with `^`/`$` to constrain the whole value (see the
+  `notify` command in `config.yaml.example` for an example exercising every
+  type).
 - **Built-in placeholders** available in every `exec` without declaring a
   param: `{command.name}`, `{user.id}`, `{user.username}`, `{channel.id}`,
   `{guild.id}`.
