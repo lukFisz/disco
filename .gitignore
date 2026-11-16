@@ -19,3 +19,5 @@ air.log
 
 # GoReleaser local build output.
 /dist
+# macOS
+.DS_Store
