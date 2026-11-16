@@ -111,6 +111,7 @@ commands:
         "{target_user}",
         "{target_channel}",
         "{target_role}",
+        "{priority}",
       ]
     params:
       message:
@@ -147,5 +148,17 @@ commands:
         type: role
         description: "Discord role to mention"
         required: true
+      priority:
+        type: string
+        # choices turns the param into a Discord dropdown (string, integer
+        # and number params only, max 25). Each entry is either a plain
+        # value (shown as-is) or a name/value pair: Discord shows the name,
+        # exec gets the value. Values are also re-checked server-side.
+        description: "Notification priority"
+        choices:
+          - low
+          - name: "Normal (default)"
+            value: normal
+          - high
     output: full
     timeout: 10s

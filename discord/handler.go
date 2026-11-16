@@ -217,7 +217,8 @@ func extractParams(cmdDef config.Command, options []*discordgo.ApplicationComman
 }
 
 // validateParams checks extracted params against cmdDef.Params (required
-// presence and regex pattern for string params). It returns a
+// presence, regex pattern for string params, and membership in choices -
+// Discord enforces choices client-side, but we don't trust that). It returns a
 // human-readable error message describing the first failure found, or "" if
 // validation passed.
 func validateParams(cmdDef config.Command, params map[string]string) string {
@@ -231,6 +232,19 @@ func validateParams(cmdDef config.Command, params map[string]string) string {
 				return fmt.Sprintf("Parameter %s does not match the required pattern", pname)
 			}
 		}
+		if present && len(p.Choices) > 0 && !isChoice(p.Choices, val) {
+			return fmt.Sprintf("Parameter %s is not one of the allowed choices", pname)
+		}
 	}
 	return ""
+}
+
+// isChoice reports whether val is one of choices' values.
+func isChoice(choices []config.Choice, val string) bool {
+	for _, ch := range choices {
+		if ch.Value == val {
+			return true
+		}
+	}
+	return false
 }

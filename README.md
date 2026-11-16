@@ -1,4 +1,4 @@
-# <img src="disco-icon.png" width="120" alt="disco logo"> disco
+# <img src="disco-icon.png" width="120" alt="disco logo"> disco (discord commands)
 
 disco is a Discord bot that reads a declarative YAML config defining
 commands, registers them as native Discord slash commands on a single
@@ -100,9 +100,11 @@ fully-worked reference (all output modes, every field). Key points:
   `user`/`channel`/`role` (substituted as the picked entity's numeric ID).
   `pattern:` only applies to `string` params; it's a plain Go regexp
   checked with `regexp.MatchString`, so it matches anywhere in the value —
-  anchor it yourself with `^`/`$` to constrain the whole value (see the
-  `notify` command in `config.yaml.example` for an example exercising every
-  type).
+  anchor it yourself with `^`/`$` to constrain the whole value.
+  `string`/`integer`/`number` params also accept `choices:` (max 25),
+  shown in Discord as a dropdown — each entry is a plain value or a
+  `{name, value}` pair (see the `notify` command in `config.yaml.example`
+  for an example exercising every type and `choices`).
 - **Built-in placeholders** available in every `exec` without declaring a
   param: `{command.name}`, `{user.id}`, `{user.username}`, `{channel.id}`,
   `{guild.id}`.

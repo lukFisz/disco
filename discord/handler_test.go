@@ -99,3 +99,21 @@ func TestExtractParams_NumberWholeValueHasNoTrailingZero(t *testing.T) {
 		t.Errorf("extractParams()[%q] = %q, want %q", "amount", got["amount"], "7")
 	}
 }
+
+func TestValidateParams_Choices(t *testing.T) {
+	cmdDef := config.Command{
+		Params: map[string]config.Param{
+			"env": {Type: config.ParamString, Choices: []config.Choice{{Name: "Production", Value: "prod"}}},
+		},
+	}
+
+	if msg := validateParams(cmdDef, map[string]string{"env": "prod"}); msg != "" {
+		t.Errorf("validateParams(allowed choice) = %q, want \"\"", msg)
+	}
+	if msg := validateParams(cmdDef, map[string]string{"env": "dev"}); msg == "" {
+		t.Error("validateParams(disallowed choice) = \"\", want an error message")
+	}
+	if msg := validateParams(cmdDef, map[string]string{}); msg != "" {
+		t.Errorf("validateParams(optional choice param absent) = %q, want \"\"", msg)
+	}
+}

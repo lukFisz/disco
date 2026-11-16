@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -536,5 +537,109 @@ commands:
 	_, err := Load(path)
 	if err == nil {
 		t.Fatal("expected error for negative audit.max_size_mb, got nil")
+	}
+}
+
+func TestValidate_ChoicesScalarAndMapping(t *testing.T) {
+	const yamlStr = `
+defaults:
+  timeout: 10s
+commands:
+  cmd:
+    exec: ["./run.sh", "{env}", "{level}", "{ratio}"]
+    params:
+      env:
+        type: string
+        choices:
+          - staging
+          - name: Production
+            value: prod
+      level:
+        type: integer
+        choices: [1, "02"]
+      ratio:
+        type: number
+        choices: ["1.50", 2]
+`
+	cfg, err := Load(writeConfig(t, yamlStr))
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	params := cfg.Commands["cmd"].Params
+
+	wantEnv := []Choice{{Name: "staging", Value: "staging"}, {Name: "Production", Value: "prod"}}
+	for i, want := range wantEnv {
+		if got := params["env"].Choices[i]; got != want {
+			t.Errorf("env choice %d = %+v, want %+v", i, got, want)
+		}
+	}
+	// integer/number values are canonicalized, names kept as written.
+	if got := params["level"].Choices[1]; got.Value != "2" || got.Name != "02" {
+		t.Errorf("level choice 1 = %+v, want value %q name %q", got, "2", "02")
+	}
+	if got := params["ratio"].Choices[0]; got.Value != "1.5" {
+		t.Errorf("ratio choice 0 value = %q, want %q", got.Value, "1.5")
+	}
+}
+
+func TestValidate_ChoicesInvalid(t *testing.T) {
+	tests := map[string]string{
+		"unsupported type": `
+        type: boolean
+        choices: ["true"]`,
+		"non-integer value": `
+        type: integer
+        choices: [abc]`,
+		"non-number value": `
+        type: number
+        choices: [abc]`,
+		"duplicate value": `
+        type: integer
+        choices: [1, "01"]`,
+		"empty string value": `
+        type: string
+        choices: [{name: Empty, value: ""}]`,
+		"value fails pattern": `
+        type: string
+        pattern: "^[a-z]+$"
+        choices: [ok, NOT_OK]`,
+	}
+	for name, param := range tests {
+		t.Run(name, func(t *testing.T) {
+			yamlStr := `
+defaults:
+  timeout: 10s
+commands:
+  cmd:
+    exec: ["./run.sh", "{p}"]
+    params:
+      p:` + param + "\n"
+			if _, err := Load(writeConfig(t, yamlStr)); err == nil {
+				t.Fatal("expected error, got nil")
+			}
+		})
+	}
+}
+
+func TestValidate_TooManyChoices(t *testing.T) {
+	yamlStr := `
+defaults:
+  timeout: 10s
+commands:
+  cmd:
+    exec: ["./run.sh", "{p}"]
+    params:
+      p:
+        type: integer
+        choices: [`
+	for i := 0; i <= maxChoices; i++ {
+		if i > 0 {
+			yamlStr += ", "
+		}
+		yamlStr += strconv.Itoa(i)
+	}
+	yamlStr += "]\n"
+	if _, err := Load(writeConfig(t, yamlStr)); err == nil {
+		t.Fatalf("expected error for more than %d choices, got nil", maxChoices)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -144,8 +145,38 @@ type Param struct {
 	Description string    `yaml:"description"`
 	Required    bool      `yaml:"required"`
 	Pattern     string    `yaml:"pattern"`
+	Choices     []Choice  `yaml:"choices"`
 
 	compiled *regexp.Regexp
+}
+
+// Discord's limits on slash command option choices.
+const (
+	maxChoices         = 25
+	maxChoiceNameLen   = 100
+	maxChoiceStringLen = 100
+)
+
+// Choice is one fixed value a param accepts, shown in Discord as a
+// dropdown entry. In YAML it's either a plain scalar (used as both name and
+// value) or a {name, value} mapping. Value is kept as a string; for
+// integer/number params Validate() canonicalizes it to the same form the
+// discord package produces when extracting the invoked option, so the two
+// can be compared as strings.
+type Choice struct {
+	Name  string `yaml:"name"`
+	Value string `yaml:"value"`
+}
+
+// UnmarshalYAML implements yaml.v3's Unmarshaler interface.
+func (c *Choice) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind == yaml.ScalarNode {
+		c.Name = value.Value
+		c.Value = value.Value
+		return nil
+	}
+	type plain Choice
+	return value.Decode((*plain)(c))
 }
 
 // Compiled returns the compiled regexp for Pattern, or nil if Pattern was
@@ -268,6 +299,10 @@ func validateCommand(name string, cmd *Command) []error {
 				cmd.Params[pname] = p
 			}
 		}
+		if len(p.Choices) > 0 {
+			errs = append(errs, validateChoices(name, pname, &p)...)
+			cmd.Params[pname] = p
+		}
 	}
 
 	// Scan exec entries for {name} placeholders and ensure each references
@@ -287,6 +322,60 @@ func validateCommand(name string, cmd *Command) []error {
 			}
 		}
 	}
+
+	return errs
+}
+
+// validateChoices checks p.Choices against Discord's limits and p.Type,
+// canonicalizing integer/number values in place (e.g. "1.50" -> "1.5").
+func validateChoices(name, pname string, p *Param) []error {
+	var errs []error
+	prefix := fmt.Sprintf("command %q: param %q: choices", name, pname)
+
+	switch p.Type {
+	case ParamString, ParamInteger, ParamNumber:
+	default:
+		return []error{fmt.Errorf("%s: only supported for string, integer and number params, not %q", prefix, p.Type)}
+	}
+	if len(p.Choices) > maxChoices {
+		errs = append(errs, fmt.Errorf("%s: at most %d allowed, got %d", prefix, maxChoices, len(p.Choices)))
+	}
+
+	choices := make([]Choice, len(p.Choices))
+	seen := make(map[string]bool, len(p.Choices))
+	for i, ch := range p.Choices {
+		if ch.Name == "" || len(ch.Name) > maxChoiceNameLen {
+			errs = append(errs, fmt.Errorf("%s[%d]: name must be 1-%d characters", prefix, i, maxChoiceNameLen))
+		}
+		switch p.Type {
+		case ParamString:
+			if ch.Value == "" || len(ch.Value) > maxChoiceStringLen {
+				errs = append(errs, fmt.Errorf("%s[%d]: value must be 1-%d characters", prefix, i, maxChoiceStringLen))
+			} else if p.compiled != nil && !p.compiled.MatchString(ch.Value) {
+				errs = append(errs, fmt.Errorf("%s[%d]: value %q does not match pattern %q", prefix, i, ch.Value, p.Pattern))
+			}
+		case ParamInteger:
+			n, err := strconv.ParseInt(ch.Value, 10, 64)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("%s[%d]: value %q is not a valid integer", prefix, i, ch.Value))
+			} else {
+				ch.Value = strconv.FormatInt(n, 10)
+			}
+		case ParamNumber:
+			f, err := strconv.ParseFloat(ch.Value, 64)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("%s[%d]: value %q is not a valid number", prefix, i, ch.Value))
+			} else {
+				ch.Value = strconv.FormatFloat(f, 'f', -1, 64)
+			}
+		}
+		if seen[ch.Value] {
+			errs = append(errs, fmt.Errorf("%s[%d]: duplicate value %q", prefix, i, ch.Value))
+		}
+		seen[ch.Value] = true
+		choices[i] = ch
+	}
+	p.Choices = choices
 
 	return errs
 }

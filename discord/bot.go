@@ -6,6 +6,7 @@ package discord
 import (
 	"fmt"
 	"log/slog"
+	"strconv"
 	"sync/atomic"
 
 	"disco/config"
@@ -142,6 +143,7 @@ func buildApplicationCommand(cmd config.Command) *discordgo.ApplicationCommand {
 			Name:        pname,
 			Description: descriptionOrPlaceholder(p.Description),
 			Required:    p.Required,
+			Choices:     buildChoices(p),
 		}
 		if p.Required {
 			required = append(required, opt)
@@ -157,6 +159,28 @@ func buildApplicationCommand(cmd config.Command) *discordgo.ApplicationCommand {
 		Description: descriptionOrPlaceholder(cmd.Description),
 		Options:     options,
 	}
+}
+
+// buildChoices converts p.Choices into Discord option choices, typing each
+// value to match the option type (Discord rejects e.g. a string value on
+// an integer option). Values were already validated as parseable by
+// config.Validate(), so parse errors are unreachable here.
+func buildChoices(p config.Param) []*discordgo.ApplicationCommandOptionChoice {
+	if len(p.Choices) == 0 {
+		return nil
+	}
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, len(p.Choices))
+	for _, ch := range p.Choices {
+		var value interface{} = ch.Value
+		switch p.Type {
+		case config.ParamInteger:
+			value, _ = strconv.ParseInt(ch.Value, 10, 64)
+		case config.ParamNumber:
+			value, _ = strconv.ParseFloat(ch.Value, 64)
+		}
+		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{Name: ch.Name, Value: value})
+	}
+	return choices
 }
 
 // paramTypeToDiscordType maps a config.ParamType to the corresponding

@@ -111,3 +111,34 @@ func TestBuildApplicationCommandEmptyDescriptionFallback(t *testing.T) {
 		t.Errorf("expected non-empty placeholder description when Command.Description is empty")
 	}
 }
+
+func TestBuildApplicationCommandChoices(t *testing.T) {
+	cmd := config.Command{
+		Name: "deploy",
+		Params: map[string]config.Param{
+			"env":   {Type: config.ParamString, Choices: []config.Choice{{Name: "Production", Value: "prod"}}},
+			"level": {Type: config.ParamInteger, Choices: []config.Choice{{Name: "two", Value: "2"}}},
+			"ratio": {Type: config.ParamNumber, Choices: []config.Choice{{Name: "half", Value: "0.5"}}},
+			"plain": {Type: config.ParamString},
+		},
+	}
+
+	want := map[string]interface{}{"env": "prod", "level": int64(2), "ratio": 0.5}
+
+	got := buildApplicationCommand(cmd)
+	for _, opt := range got.Options {
+		wantValue, ok := want[opt.Name]
+		if !ok {
+			if opt.Choices != nil {
+				t.Errorf("option %q: Choices = %v, want nil", opt.Name, opt.Choices)
+			}
+			continue
+		}
+		if len(opt.Choices) != 1 {
+			t.Fatalf("option %q: len(Choices) = %d, want 1", opt.Name, len(opt.Choices))
+		}
+		if opt.Choices[0].Value != wantValue {
+			t.Errorf("option %q: choice value = %#v, want %#v", opt.Name, opt.Choices[0].Value, wantValue)
+		}
+	}
+}
